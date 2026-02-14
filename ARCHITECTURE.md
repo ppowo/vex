@@ -87,6 +87,7 @@ vex/
 ├── cmd_unset.go         # Unset variable
 ├── cmd_list.go          # List current values
 ├── cmd_aliases.go       # List alias mappings
+├── install_tools.go     # go:generate installs mage
 ├── magefiles/
 │   └── magefile.go      # Build, install, clean, vet targets
 ├── go.mod
@@ -99,8 +100,9 @@ vex/
 Uses [mage](https://magefile.org/). Installs to `~/.bio/bin`.
 
 ```sh
-mage build     # Build to bin/vex
-mage install   # Build + copy to ~/.bio/bin
-mage clean     # Remove bin/
-mage vet       # Run go vet
+go generate ./...   # Install mage (first time)
+mage build          # Build to bin/vex
+mage install        # Build + copy to ~/.bio/bin
+mage clean          # Remove bin/
+mage vet            # Run go vet
 ```

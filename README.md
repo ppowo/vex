@@ -7,7 +7,8 @@ CLI tool to manage shell environment variables without re-sourcing.
 ## Setup
 
 ```sh
-go install github.com/pun/vex@latest
+go generate ./...   # install mage
+mage install        # build + install to ~/.bio/bin
 ```
 
 Add to `.zshrc`:
