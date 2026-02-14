@@ -28,9 +28,15 @@ func Build() error {
 		binary = "bin/vex.exe"
 	}
 
-	return sh.Run("go", "build",
+	env := map[string]string{}
+	if os.Getenv("CGO_ENABLED") == "" {
+		env["CGO_ENABLED"] = "0"
+	}
+
+	return sh.RunWith(env, "go", "build",
 		"-ldflags=-s -w",
 		"-trimpath",
+		"-buildvcs=false",
 		"-o", binary,
 		".")
 }
