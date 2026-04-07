@@ -153,12 +153,12 @@ vex/
 
 ## Build
 
-Uses [mage](https://magefile.org/). Installs to `~/.local/share/vex`.
+Uses [mage](https://magefile.org/). Installs to `~/.bio/bin`.
 
 ```sh
 go generate ./...   # Install mage (first time)
 mage build          # Build to bin/vex
-mage install        # Build + copy to ~/.local/share/vex
+mage install        # Build + copy to ~/.bio/bin
 mage clean          # Remove bin/
 mage vet            # Run go vet
 ```

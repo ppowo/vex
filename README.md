@@ -10,7 +10,7 @@ CLI tool to manage shell environment variables without re-sourcing.
 
 ```sh
 go generate ./...   # install mage
-mage install        # build + install to ~/.local/share/vex
+mage install        # build + install to ~/.bio/bin
 ```
 
 Add to `.zshrc`:
