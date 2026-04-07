@@ -71,6 +71,31 @@ var aliases = map[string]string{
 
 Use `vex path` to print the resolved path. Place scripts or binaries in this directory to make them available everywhere.
 
+## Managed Binaries (`vex bin`)
+
+vex can install and manage curated standalone binaries into its bin directory. Only binaries hardcoded into vex are supported — vex never treats all files in the bin directory as managed.
+
+### Tool Catalog
+
+Each tool is defined as a `ToolSpec` in `internal/bin/catalog.go` with:
+- Name, binary name, version detection args
+- A resolver function that fetches the latest release from GitHub
+
+### State Tracking
+
+`~/.vex/bin-state.json` tracks which tools are installed, their versions, and artifact metadata.
+
+### Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `vex bin install <tool> [--force]` | Install a curated binary |
+| `vex bin ls` | List all curated tools and their status |
+| `vex bin status <tool>` | Detailed install/update status |
+| `vex bin sync [--dry-run]` | Install missing + update outdated tools |
+| `vex bin update [<tool>\|--all] [--force]` | Update one or all managed tools |
+| `vex bin version <tool>` | Show installed vs latest version |
+
 ## Commands
 | Command | Eval'd | Description |
 |---------|--------|--------------|
@@ -80,6 +105,7 @@ Use `vex path` to print the resolved path. Place scripts or binaries in this dir
 | `vex list` | No | Show current values of all aliased variables |
 | `vex aliases` | No | List alias → variable mappings |
 | `vex path` | No | Print the vex bin directory path |
+| `vex bin <subcommand>` | No | Manage curated standalone binaries |
 
 ## Output Streams
 
@@ -100,6 +126,23 @@ vex/
 ├── cmd_list.go          # List current values
 ├── cmd_aliases.go       # List alias mappings
 ├── cmd_path.go          # Print bin directory path
+├── cmd_bin.go           # CLI layer for bin subcommands
+├── internal/
+│   ├── paths/
+│   │   └── paths.go     # Managed bin dir + config dir resolution
+│   └── bin/
+│       ├── catalog.go   # ToolSpec type + hardcoded tool catalog
+│       ├── tool.go      # Install/Update/Inspect engine, download, extract
+│       ├── state.go     # bin-state.json read/write
+│       ├── tool_test.go # Unit tests
+│       ├── cs.go        # cs resolver + shared GitHub types/helpers
+│       ├── ast_grep.go  # ast-grep resolver
+│       ├── difftastic.go
+│       ├── nushell.go
+│       ├── nushell_plugins.go
+│       ├── scc.go
+│       ├── shellcheck.go
+│       └── yq.go
 ├── install_tools.go     # go:generate installs mage
 ├── magefiles/
 │   └── magefile.go      # Build, install, clean, vet targets

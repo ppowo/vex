@@ -42,6 +42,9 @@ func main() {
 	case "path":
 		cmdPath()
 
+	case "bin":
+		cmdBin(args[1:])
+
 	case "--help", "-h":
 		printUsage()
 
@@ -53,7 +56,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`vex - Shell environment variable manager
+	fmt.Println(`vex - Shell environment variable manager & binary toolkit
 
 Usage:
   vex init                  Shell integration (eval this in .zshrc)
@@ -62,6 +65,7 @@ Usage:
   vex list                  Show all variables and current values
   vex aliases               Show alias → variable mappings
   vex path                  Print the vex bin directory path
+  vex bin <subcommand>      Manage curated standalone binaries
 
 Shell Setup:
   eval "$(vex init)"`)
