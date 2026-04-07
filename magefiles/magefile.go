@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 )
@@ -24,9 +22,6 @@ func Build() error {
 	}
 
 	binary := "bin/vex"
-	if runtime.GOOS == "windows" {
-		binary = "bin/vex.exe"
-	}
 
 	env := map[string]string{}
 	if os.Getenv("CGO_ENABLED") == "" {
@@ -56,9 +51,6 @@ func Install() error {
 	}
 
 	binary := "vex"
-	if runtime.GOOS == "windows" {
-		binary = "vex.exe"
-	}
 
 	src := filepath.Join("bin", binary)
 	dst := filepath.Join(installDir, binary)
@@ -66,11 +58,8 @@ func Install() error {
 	if err := sh.Copy(dst, src); err != nil {
 		return fmt.Errorf("failed to copy binary: %w", err)
 	}
-
-	if runtime.GOOS != "windows" {
 		if err := os.Chmod(dst, 0755); err != nil {
-			return err
-		}
+		return err
 	}
 
 	fmt.Printf("✓ Installed to %s\n", dst)

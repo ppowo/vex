@@ -39,6 +39,9 @@ func main() {
 	case "aliases":
 		cmdAliases()
 
+	case "path":
+		cmdPath()
+
 	case "--help", "-h":
 		printUsage()
 
@@ -58,6 +61,7 @@ Usage:
   vex unset <alias>         Unset an environment variable
   vex list                  Show all variables and current values
   vex aliases               Show alias → variable mappings
+  vex path                  Print the vex bin directory path
 
 Shell Setup:
   eval "$(vex init)"`)

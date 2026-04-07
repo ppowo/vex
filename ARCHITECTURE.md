@@ -15,9 +15,8 @@ eval "$(vex init)"
 ```
 
 The output includes:
-
-1. **Exports** from persisted state (`~/.vex/state.json`) — so new shells start with the right environment
-2. **Shell function wrapper** — selectively evals `set`/`unset` commands
+2. **PATH addition** — adds the vex bin directory to `$PATH` (with deduplication)
+3. **Shell function wrapper** — selectively evals `set`/`unset` commands
 
 ```sh
 vex() {
@@ -60,15 +59,27 @@ var aliases = map[string]string{
 }
 ```
 
-## Commands
+## Bin Directory
 
+`vex init` automatically creates an OS-dependent bin directory and adds it to `$PATH`:
+
+| OS | Path |
+|----|------|
+| macOS | `~/.local/share/vex/bin` |
+| Linux | `$XDG_DATA_HOME/vex/bin` (defaults to `~/.local/share/vex/bin`) |
+> **Note:** Windows is not supported. vex relies on zsh/bash shell integration.
+
+Use `vex path` to print the resolved path. Place scripts or binaries in this directory to make them available everywhere.
+
+## Commands
 | Command | Eval'd | Description |
-|---------|--------|-------------|
-| `vex init` | Yes (once, in `.zshrc`) | Replay state + output shell function wrapper |
+|---------|--------|--------------|
+| `vex init` | Yes (once, in `.zshrc`) | Replay state + create bin dir + add to PATH + output shell function wrapper |
 | `vex set <alias> <value>` | Yes | Export var + persist to state file |
 | `vex unset <alias>` | Yes | Unset var + remove from state file |
 | `vex list` | No | Show current values of all aliased variables |
 | `vex aliases` | No | List alias → variable mappings |
+| `vex path` | No | Print the vex bin directory path |
 
 ## Output Streams
 
@@ -81,12 +92,14 @@ var aliases = map[string]string{
 vex/
 ├── main.go              # Entrypoint, command dispatch
 ├── aliases.go           # Hardcoded alias → env var mappings
+├── paths.go             # OS-dependent bin directory resolution
 ├── state.go             # Read/write ~/.vex/state.json
-├── cmd_init.go          # Shell function + state replay
+├── cmd_init.go          # Shell function + state replay + bin dir setup
 ├── cmd_set.go           # Set variable
 ├── cmd_unset.go         # Unset variable
 ├── cmd_list.go          # List current values
 ├── cmd_aliases.go       # List alias mappings
+├── cmd_path.go          # Print bin directory path
 ├── install_tools.go     # go:generate installs mage
 ├── magefiles/
 │   └── magefile.go      # Build, install, clean, vet targets
