@@ -1,8 +1,6 @@
-<!-- NOTE: Keep this README minimal. -->
-
 # vex
 
-CLI tool to manage shell environment variables without re-sourcing.
+CLI tool to manage shell environment variables without re-sourcing, plus a curated binary toolkit.
 
 > **Note:** macOS and Linux only. Windows is not supported.
 
@@ -13,24 +11,78 @@ go generate ./...   # install mage
 mage install        # build + install to ~/.bio/bin
 ```
 
-Add to `.zshrc`:
+Add to `.zshrc` or `.bashrc`:
 
 ```sh
 eval "$(vex init)"
 ```
 
-## Usage
+## Environment Variables
 
 ```sh
 vex set aws staging       # exports AWS_PROFILE=staging
 vex unset aws             # unsets AWS_PROFILE
 vex list                  # show all aliased vars and current values
 vex aliases               # show alias → variable mappings
-vex path                  # print the vex bin directory
 ```
 
-The vex bin directory (printed by `vex path`) is automatically created and added to `$PATH` by `vex init`. Place scripts or binaries there to make them available in every shell.
+### Aliases
+
+Short aliases map to real environment variable names (hardcoded in `aliases.go`):
+
+| Alias | Variable |
+|-------|----------|
+| exa | EXA_API_KEY |
+| openrouter | OPENROUTER_API_KEY |
+| opencode | OPENCODE_API_KEY |
+| synthetic | SYNTHETIC_API_KEY |
+
+State persists in `~/.vex/state.json` and is replayed on shell startup.
+
+## Bin Directory
+
+`vex init` creates an OS-dependent bin directory and adds it to `$PATH`:
+
+| OS | Path |
+|----|------|
+| macOS | `~/.local/share/vex` |
+| Linux | `$XDG_DATA_HOME/vex` (defaults to `~/.local/share/vex`) |
+
+```sh
+vex path              # print the vex bin directory
+```
+
+Place scripts or binaries here to make them available in every shell.
+
+## Managed Binaries (`vex bin`)
+
+Install and update curated standalone binaries into the vex bin directory:
+
+```sh
+vex bin install <tool> [--force]   # install a curated binary
+vex bin ls                         # list all curated tools and their status
+vex bin status <tool>              # detailed install/update status
+vex bin sync [--dry-run]           # install missing + update outdated tools
+vex bin update [<tool>|--all] [--force]  # update one or all managed tools
+vex bin version <tool>             # show installed vs latest version
+```
+
+### Available Tools
+
+| Tool | Binary | Description |
+|------|--------|-------------|
+| ast-grep | `sg` | Fast, polyglot code search and rewriting |
+| cs | `cs` | Ranked structural code search |
+| difftastic | `difft` | Structural diff that understands syntax |
+| nushell | `nu` | A new type of shell |
+| nu-plugin-semver | `nu_plugin_semver` | SemVer parsing for Nushell |
+| nu-plugin-file | `nu_plugin_file` | File type detection via libmagic |
+| scc | `scc` | Fast code counter with complexity |
+| shellcheck | `shellcheck` | Shell script static analysis |
+| yq | `yq` | YAML/JSON/XML/CSV processor |
+
+Only hardcoded tools are supported — vex never assumes all files in the bin directory are managed.
 
 ## Details
 
-See [ARCHITECTURE.md](ARCHITECTURE.md).
+See [ARCHITECTURE.md](ARCHITECTURE.md) for implementation details.

@@ -8,7 +8,7 @@ A child process cannot modify its parent shell's environment. `vex` solves this 
 
 ### `vex init`
 
-Outputs shell code to stdout, designed to be eval'd in `.zshrc`:
+Outputs shell code to stdout, designed to be eval'd in `.zshrc` or `.bashrc`:
 
 ```sh
 eval "$(vex init)"
@@ -67,7 +67,7 @@ var aliases = map[string]string{
 |----|------|
 | macOS | `~/.local/share/vex` |
 | Linux | `$XDG_DATA_HOME/vex` (defaults to `~/.local/share/vex`) |
-> **Note:** Windows is not supported. vex relies on zsh/bash shell integration.
+> **Note:** Windows is not supported. vex relies on zsh/bash shell integration (both are supported).
 
 Use `vex path` to print the resolved path. Place scripts or binaries in this directory to make them available everywhere.
 
@@ -99,7 +99,7 @@ Each tool is defined as a `ToolSpec` in `internal/bin/catalog.go` with:
 ## Commands
 | Command | Eval'd | Description |
 |---------|--------|--------------|
-| `vex init` | Yes (once, in `.zshrc`) | Replay state + create bin dir + add to PATH + output shell function wrapper |
+| `vex init` | Yes (once, in `.zshrc` or `.bashrc`) | Replay state + create bin dir + add to PATH + output shell function wrapper |
 | `vex set <alias> <value>` | Yes | Export var + persist to state file |
 | `vex unset <alias>` | Yes | Unset var + remove from state file |
 | `vex list` | No | Show current values of all aliased variables |

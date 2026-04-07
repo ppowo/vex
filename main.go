@@ -59,7 +59,7 @@ func printUsage() {
 	fmt.Println(`vex - Shell environment variable manager & binary toolkit
 
 Usage:
-  vex init                  Shell integration (eval this in .zshrc)
+  vex init                  Shell integration (eval in .zshrc or .bashrc)
   vex set <alias> <value>   Set an environment variable
   vex unset <alias>         Unset an environment variable
   vex list                  Show all variables and current values
