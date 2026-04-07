@@ -45,7 +45,7 @@ func Install() error {
 		return err
 	}
 
-	installDir := filepath.Join(home, ".bio", "bin")
+	installDir := filepath.Join(home, ".local", "share", "vex")
 	if _, err := os.Stat(installDir); os.IsNotExist(err) {
 		return fmt.Errorf("install directory %s does not exist", installDir)
 	}

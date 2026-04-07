@@ -8,8 +8,8 @@ import (
 
 // vexBinDir returns the OS-appropriate directory for vex-managed binaries.
 //
-//   - macOS: ~/.local/share/vex/bin
-//   - Linux: $XDG_DATA_HOME/vex/bin (defaults to ~/.local/share/vex/bin)
+//   - macOS: ~/.local/share/vex
+//   - Linux: $XDG_DATA_HOME/vex (defaults to ~/.local/share/vex)
 func vexBinDir() string {
 	if runtime.GOOS == "linux" {
 		base := os.Getenv("XDG_DATA_HOME")
@@ -17,12 +17,11 @@ func vexBinDir() string {
 			home, _ := os.UserHomeDir()
 			base = filepath.Join(home, ".local", "share")
 		}
-		return filepath.Join(base, "vex", "bin")
+		return filepath.Join(base, "vex")
 	}
-
 	// darwin and other unix
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", "vex", "bin")
+	return filepath.Join(home, ".local", "share", "vex")
 }
 
 // ensureBinDir creates the vex bin directory if it doesn't exist.

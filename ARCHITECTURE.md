@@ -65,8 +65,8 @@ var aliases = map[string]string{
 
 | OS | Path |
 |----|------|
-| macOS | `~/.local/share/vex/bin` |
-| Linux | `$XDG_DATA_HOME/vex/bin` (defaults to `~/.local/share/vex/bin`) |
+| macOS | `~/.local/share/vex` |
+| Linux | `$XDG_DATA_HOME/vex` (defaults to `~/.local/share/vex`) |
 > **Note:** Windows is not supported. vex relies on zsh/bash shell integration.
 
 Use `vex path` to print the resolved path. Place scripts or binaries in this directory to make them available everywhere.
@@ -153,12 +153,12 @@ vex/
 
 ## Build
 
-Uses [mage](https://magefile.org/). Installs to `~/.bio/bin`.
+Uses [mage](https://magefile.org/). Installs to `~/.local/share/vex`.
 
 ```sh
 go generate ./...   # Install mage (first time)
 mage build          # Build to bin/vex
-mage install        # Build + copy to ~/.bio/bin
+mage install        # Build + copy to ~/.local/share/vex
 mage clean          # Remove bin/
 mage vet            # Run go vet
 ```
