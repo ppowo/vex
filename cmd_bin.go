@@ -9,48 +9,6 @@ import (
 	binpkg "github.com/pun/vex/internal/bin"
 )
 
-func cmdBin(args []string) {
-	if len(args) == 0 {
-		printBinUsage()
-		return
-	}
-
-	switch args[0] {
-	case "install":
-		cmdBinInstall(args[1:])
-	case "ls":
-		cmdBinLs()
-	case "status":
-		cmdBinStatus(args[1:])
-	case "sync":
-		cmdBinSync(args[1:])
-	case "update":
-		cmdBinUpdate(args[1:])
-	case "version":
-		cmdBinVersion(args[1:])
-	case "--help", "-h":
-		printBinUsage()
-	default:
-		fmt.Fprintf(os.Stderr, "Unknown bin subcommand: %s\n", args[0])
-		printBinUsage()
-		os.Exit(1)
-	}
-}
-
-func printBinUsage() {
-	fmt.Println(`vex bin - Manage curated standalone binaries
-
-Usage:
-  vex bin install <tool> [--force]   Install a curated standalone binary
-  vex bin ls                         List curated managed binaries
-  vex bin status <tool>              Show install and update status
-  vex bin sync [--dry-run]           Install missing and update outdated binaries
-  vex bin update [<tool>|--all] [--force]  Update one or all managed binaries
-  vex bin version <tool>             Show installed and latest version
-
-Only binaries hardcoded into vex are supported.`)
-}
-
 // --- helpers ---
 
 func lookupManagedTool(name string) (binpkg.ToolSpec, error) {
@@ -86,38 +44,17 @@ func truncate(s string, maxLen int) string {
 
 // --- install ---
 
-func cmdBinInstall(args []string) {
-	force := false
-	var toolName string
-	for _, arg := range args {
-		switch arg {
-		case "--force":
-			force = true
-		default:
-			if strings.HasPrefix(arg, "-") {
-				fmt.Fprintf(os.Stderr, "Unknown flag: %s\n", arg)
-				os.Exit(1)
-			}
-			toolName = arg
-		}
-	}
-	if toolName == "" {
-		fmt.Fprintf(os.Stderr, "Usage: vex bin install <tool> [--force]\n")
-		os.Exit(1)
-	}
-
+func cmdBinInstall(toolName string, force bool) {
 	spec, err := lookupManagedTool(toolName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
 	result, err := binpkg.InstallTool(context.Background(), spec, force)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
 	fmt.Printf("✓ Installed %s %s to %s\n", spec.Name, result.State.InstalledVersion, result.State.Path)
 }
 
@@ -164,28 +101,20 @@ func cmdBinLs() {
 
 // --- status ---
 
-func cmdBinStatus(args []string) {
-	if len(args) != 1 {
-		fmt.Fprintf(os.Stderr, "Usage: vex bin status <tool>\n")
-		os.Exit(1)
-	}
-
-	spec, err := lookupManagedTool(args[0])
+func cmdBinStatus(toolName string) {
+	spec, err := lookupManagedTool(toolName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
 	status, err := binpkg.InspectTool(context.Background(), spec)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
 	if status.LatestError != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to check latest version for %s: %v\n", spec.Name, status.LatestError)
 	}
-
 	installedVersion := status.EffectiveInstalledVersion()
 	if installedVersion == "" {
 		installedVersion = "unknown"
@@ -194,7 +123,6 @@ func cmdBinStatus(args []string) {
 	if latestVersion == "" {
 		latestVersion = "unknown"
 	}
-
 	fmt.Printf("Tool:              %s\n", spec.Name)
 	fmt.Printf("Managed:           %s\n", yesNo(status.Managed))
 	fmt.Printf("Path:              %s\n", status.Path)
@@ -215,18 +143,7 @@ func cmdBinStatus(args []string) {
 
 // --- sync ---
 
-func cmdBinSync(args []string) {
-	dryRun := false
-	for _, arg := range args {
-		switch arg {
-		case "--dry-run":
-			dryRun = true
-		default:
-			fmt.Fprintf(os.Stderr, "Unknown flag: %s\n", arg)
-			os.Exit(1)
-		}
-	}
-
+func cmdBinSync(dryRun bool) {
 	ctx := context.Background()
 	tools := binpkg.AllTools()
 	var installed, updated, failed int
@@ -244,7 +161,6 @@ func cmdBinSync(args []string) {
 			installed++
 		}
 	}
-
 	fmt.Printf("\nSummary: %d installed, %d updated, %d failed\n", installed, updated, failed)
 	if failed > 0 {
 		os.Exit(1)
@@ -329,58 +245,35 @@ func syncTool(ctx context.Context, spec binpkg.ToolSpec, dryRun bool) (bool, err
 
 // --- update ---
 
-func cmdBinUpdate(args []string) {
-	updateAll := false
-	force := false
-	var toolName string
-	for _, arg := range args {
-		switch arg {
-		case "--all":
-			updateAll = true
-		case "--force":
-			force = true
-		default:
-			if strings.HasPrefix(arg, "-") {
-				fmt.Fprintf(os.Stderr, "Unknown flag: %s\n", arg)
-				os.Exit(1)
-			}
-			toolName = arg
-		}
-	}
-
+func cmdBinUpdate(toolName string, updateAll, force bool) {
 	if updateAll && toolName != "" {
-		fmt.Fprintf(os.Stderr, "Error: cannot specify a tool name together with --all\n")
+		fmt.Fprintln(os.Stderr, "Error: cannot specify a tool name together with --all")
 		os.Exit(1)
 	}
 	if !updateAll && toolName == "" {
-		fmt.Fprintf(os.Stderr, "Usage: vex bin update [<tool>|--all] [--force]\n")
+		fmt.Fprintln(os.Stderr, "Error: specify either a tool name or --all")
 		os.Exit(1)
 	}
 
 	ctx := context.Background()
-
 	if updateAll {
 		updateAllManagedTools(ctx, force)
 		return
 	}
-
 	spec, err := lookupManagedTool(toolName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
 	result, err := binpkg.UpdateTool(ctx, spec, force)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
 	if !result.Updated {
 		fmt.Printf("%s is already up to date (%s)\n", spec.Name, result.State.InstalledVersion)
 		return
 	}
-
 	if result.PreviousVersion != "" {
 		fmt.Printf("✓ Updated %s from %s to %s\n", spec.Name, result.PreviousVersion, result.State.InstalledVersion)
 	} else {
@@ -433,28 +326,20 @@ func updateAllManagedTools(ctx context.Context, force bool) {
 
 // --- version ---
 
-func cmdBinVersion(args []string) {
-	if len(args) != 1 {
-		fmt.Fprintf(os.Stderr, "Usage: vex bin version <tool>\n")
-		os.Exit(1)
-	}
-
-	spec, err := lookupManagedTool(args[0])
+func cmdBinVersion(toolName string) {
+	spec, err := lookupManagedTool(toolName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
 	status, err := binpkg.InspectTool(context.Background(), spec)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
 	if status.LatestError != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to check latest version for %s: %v\n", spec.Name, status.LatestError)
 	}
-
 	installedVersion := status.EffectiveInstalledVersion()
 	if installedVersion == "" {
 		installedVersion = "unknown"
@@ -463,7 +348,6 @@ func cmdBinVersion(args []string) {
 	if latestVersion == "" {
 		latestVersion = "unknown"
 	}
-
 	fmt.Printf("%s\n", spec.Name)
 	fmt.Printf("  installed: %s\n", installedVersion)
 	fmt.Printf("  latest:    %s\n", latestVersion)

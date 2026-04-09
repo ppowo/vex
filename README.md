@@ -17,6 +17,8 @@ Add to `.zshrc` or `.bashrc`:
 eval "$(vex init)"
 ```
 
+`vex init` always exports `PI_TASKS=off` as part of shell setup.
+
 ## Environment Variables
 
 ```sh

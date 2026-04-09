@@ -31,11 +31,11 @@ vex() {
 ### `set` / `unset` Commands
 
 Output shell statements to **stdout** (captured by eval) and info to **stderr** (displayed directly).
+`vex init` always emits `export PI_TASKS="off"` in shell setup output. This value is hardcoded and not persisted in state.
 
 ### Persistent State
 
 `~/.vex/state.json` stores alias→value pairs:
-
 ```json
 {
   "aws": "staging",
@@ -45,7 +45,7 @@ Output shell statements to **stdout** (captured by eval) and info to **stderr** 
 
 - `vex set` writes to this file + outputs `export` to stdout
 - `vex unset` removes from this file + outputs `unset` to stdout
-- `vex init` reads this file + replays all exports
+- `vex init` reads this file + replays all exports, then forces `PI_TASKS=off`
 
 ## Variable Aliases
 
@@ -109,7 +109,7 @@ Each tool is defined as a `ToolSpec` in `internal/bin/catalog.go` with:
 
 ## Output Streams
 
-- **stdout** — Shell commands (`export`, `unset`). Only consumed by eval.
+- **stdout** — Shell commands (`export`, `unset`). `vex init` setup output also includes `export PI_TASKS="off"`.
 - **stderr** — Human-readable messages, errors, confirmations.
 
 ## Project Structure

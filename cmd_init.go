@@ -24,6 +24,8 @@ func cmdInit() {
 		fmt.Printf("export %s=%q\n", envVar, value)
 	}
 
+	emitForcedShellEnv()
+
 	// Add vex bin directory to PATH (with deduplication)
 	binDir := vexBinDir()
 	fmt.Printf(`
