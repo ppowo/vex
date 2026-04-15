@@ -42,6 +42,29 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
+func toolStatusSummary(status *binpkg.ToolStatus, installedVersion, latestVersion string) string {
+	if status.ResolutionExactVersion && status.VersionChangeRequired && installedVersion != "unknown" && latestVersion != "unknown" {
+		switch comparison := binpkg.CompareVersions(installedVersion, latestVersion); {
+		case comparison > 0:
+			return "compatibility downgrade required"
+		case comparison < 0:
+			return "update required for compat stack"
+		default:
+			return "version alignment required"
+		}
+	}
+	if status.LatestVersion != "" && installedVersion != "unknown" {
+		if status.UpdateAvailable {
+			return "update available"
+		}
+		return "up to date"
+	}
+	if status.Exists {
+		return "installed"
+	}
+	return "not installed"
+}
+
 // --- install ---
 
 func cmdBinInstall(toolName string, force bool) {
@@ -136,8 +159,31 @@ func cmdBinStatus(toolName string) {
 	if status.LatestReleaseTag != "" {
 		fmt.Printf("Latest tag:        %s\n", status.LatestReleaseTag)
 	}
+	if status.ResolutionStrategy != "" {
+		fmt.Printf("Resolution:        %s\n", status.ResolutionStrategy)
+	}
+	if status.ResolutionReason != "" {
+		fmt.Printf("Resolution note:   %s\n", status.ResolutionReason)
+	}
+	if status.UpstreamLatestVersion != "" && status.UpstreamLatestVersion != latestVersion {
+		fmt.Printf("Upstream latest:   %s\n", status.UpstreamLatestVersion)
+		if status.UpstreamLatestReleaseTag != "" {
+			fmt.Printf("Upstream tag:      %s\n", status.UpstreamLatestReleaseTag)
+		}
+		if len(status.CompatibleTools) > 0 {
+			fmt.Printf("Capped by:         %s\n", strings.Join(status.CompatibleTools, ", "))
+		}
+	}
+	if status.SelectedNushellMinor != "" {
+		fmt.Printf("Compat minor:      %s.x\n", status.SelectedNushellMinor)
+	}
 	if status.LatestVersion != "" && installedVersion != "unknown" {
-		fmt.Printf("Update available:  %s\n", yesNo(status.UpdateAvailable))
+		fmt.Printf("Status:            %s\n", toolStatusSummary(status, installedVersion, latestVersion))
+		if status.ResolutionExactVersion {
+			fmt.Printf("Change required:   %s\n", yesNo(status.VersionChangeRequired))
+		} else {
+			fmt.Printf("Update available:  %s\n", yesNo(status.UpdateAvailable))
+		}
 	}
 }
 
@@ -147,11 +193,14 @@ func cmdBinSync(dryRun bool) {
 	ctx := context.Background()
 	tools := binpkg.AllTools()
 	var installed, updated, failed int
-
+	rateLimitFailures := githubRateLimitFailureCollector{}
 	for _, spec := range tools {
 		wasUpdate, err := syncTool(ctx, spec, dryRun)
 		if err != nil {
 			failed++
+			if rateLimitFailures.Record(spec.Name, err) {
+				continue
+			}
 			fmt.Fprintf(os.Stderr, "✗ %s: %v\n", spec.Name, err)
 			continue
 		}
@@ -161,28 +210,27 @@ func cmdBinSync(dryRun bool) {
 			installed++
 		}
 	}
-	fmt.Printf("\nSummary: %d installed, %d updated, %d failed\n", installed, updated, failed)
+
+	rateLimitFailures.PrintSummary()
+	fmt.Printf("\nSummary: %d installed, %d updated, %d failed%s\n", installed, updated, failed, rateLimitFailures.SummarySuffix())
 	if failed > 0 {
 		os.Exit(1)
 	}
 }
 
 func syncTool(ctx context.Context, spec binpkg.ToolSpec, dryRun bool) (bool, error) {
-	status, err := binpkg.LocalToolStatus(spec)
+	status, err := binpkg.InspectTool(ctx, spec)
 	if err != nil {
-		return false, fmt.Errorf("failed to check local status: %w", err)
+		return false, fmt.Errorf("failed to inspect %s: %w", spec.Name, err)
+	}
+	if status.LatestError != nil {
+		return false, fmt.Errorf("failed to check latest version: %w", status.LatestError)
 	}
 
-	inspect, err := binpkg.InspectTool(ctx, spec)
-	if err != nil {
-		return false, fmt.Errorf("failed to check latest version: %w", err)
-	}
-
-	latestVersion := inspect.LatestVersion
+	latestVersion := status.LatestVersion
 	if latestVersion == "" {
 		latestVersion = "unknown"
 	}
-
 	// Case 1: Not installed
 	if !status.Exists {
 		if dryRun {
@@ -196,7 +244,6 @@ func syncTool(ctx context.Context, spec binpkg.ToolSpec, dryRun bool) (bool, err
 		fmt.Printf("✓ %s: installed %s\n", spec.Name, installResult.State.InstalledVersion)
 		return false, nil
 	}
-
 	// Case 2: Unmanaged binary exists - take it over
 	if !status.Managed {
 		if dryRun {
@@ -210,7 +257,6 @@ func syncTool(ctx context.Context, spec binpkg.ToolSpec, dryRun bool) (bool, err
 		fmt.Printf("✓ %s: took over and installed %s\n", spec.Name, installResult.State.InstalledVersion)
 		return true, nil
 	}
-
 	// Case 3: Managed and installed - update/re-install with force
 	installedVersion := status.EffectiveInstalledVersion()
 	if installedVersion == "" {
@@ -218,19 +264,20 @@ func syncTool(ctx context.Context, spec binpkg.ToolSpec, dryRun bool) (bool, err
 	}
 
 	if dryRun {
-		if inspect.UpdateAvailable {
+		switch {
+		case status.ResolutionExactVersion && status.VersionChangeRequired:
+			fmt.Printf("• %s: would align %s → %s (compat stack)\n", spec.Name, installedVersion, latestVersion)
+		case status.UpdateAvailable:
 			fmt.Printf("• %s: would update %s → %s\n", spec.Name, installedVersion, latestVersion)
-		} else {
+		default:
 			fmt.Printf("• %s: would re-install %s\n", spec.Name, latestVersion)
 		}
 		return true, nil
 	}
-
 	updateResult, err := binpkg.UpdateTool(ctx, spec, true)
 	if err != nil {
 		return false, err
 	}
-
 	if updateResult.Updated {
 		if updateResult.PreviousVersion != "" && updateResult.PreviousVersion != updateResult.State.InstalledVersion {
 			fmt.Printf("↑ %s: %s → %s\n", spec.Name, updateResult.PreviousVersion, updateResult.State.InstalledVersion)
@@ -260,6 +307,7 @@ func cmdBinUpdate(toolName string, updateAll, force bool) {
 		updateAllManagedTools(ctx, force)
 		return
 	}
+
 	spec, err := lookupManagedTool(toolName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -286,22 +334,24 @@ func updateAllManagedTools(ctx context.Context, force bool) {
 	updated := 0
 	current := 0
 	failed := 0
-
+	rateLimitFailures := githubRateLimitFailureCollector{}
 	for _, spec := range tools {
 		status, err := binpkg.LocalToolStatus(spec)
 		if err != nil {
 			failed++
-			fmt.Printf("✗ %s: %v\n", spec.Name, err)
+			fmt.Fprintf(os.Stderr, "✗ %s: %v\n", spec.Name, err)
 			continue
 		}
 		if !status.Managed {
 			continue
 		}
-
 		result, err := binpkg.UpdateTool(ctx, spec, force)
 		if err != nil {
 			failed++
-			fmt.Printf("✗ %s: %v\n", spec.Name, err)
+			if rateLimitFailures.Record(spec.Name, err) {
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "✗ %s: %v\n", spec.Name, err)
 			continue
 		}
 		if result.Updated {
@@ -313,12 +363,12 @@ func updateAllManagedTools(ctx context.Context, force bool) {
 			}
 			continue
 		}
-
 		current++
 		fmt.Printf("• %s: already up to date (%s)\n", spec.Name, result.State.InstalledVersion)
 	}
 
-	fmt.Printf("Summary: %d updated, %d already current, %d failed\n", updated, current, failed)
+	rateLimitFailures.PrintSummary()
+	fmt.Printf("Summary: %d updated, %d already current, %d failed%s\n", updated, current, failed, rateLimitFailures.SummarySuffix())
 	if failed > 0 {
 		os.Exit(1)
 	}
@@ -351,15 +401,11 @@ func cmdBinVersion(toolName string) {
 	fmt.Printf("%s\n", spec.Name)
 	fmt.Printf("  installed: %s\n", installedVersion)
 	fmt.Printf("  latest:    %s\n", latestVersion)
-	if status.LatestVersion != "" && installedVersion != "unknown" {
-		if status.UpdateAvailable {
-			fmt.Println("  status:    update available")
-		} else {
-			fmt.Println("  status:    up to date")
-		}
-	} else if status.Exists {
-		fmt.Println("  status:    installed")
-	} else {
-		fmt.Println("  status:    not installed")
+	if status.ResolutionStrategy != "" {
+		fmt.Printf("  resolve:   %s\n", status.ResolutionStrategy)
 	}
+	if status.UpstreamLatestVersion != "" && status.UpstreamLatestVersion != latestVersion {
+		fmt.Printf("  upstream:  %s\n", status.UpstreamLatestVersion)
+	}
+	fmt.Printf("  status:    %s\n", toolStatusSummary(status, installedVersion, latestVersion))
 }

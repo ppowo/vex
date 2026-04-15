@@ -14,9 +14,11 @@ const csLatestReleaseURL = "https://api.github.com/repos/boyter/cs/releases/late
 var sha256HexPattern = regexp.MustCompile(`(?i)\b[a-f0-9]{64}\b`)
 
 type githubRelease struct {
-	TagName string               `json:"tag_name"`
-	Name    string               `json:"name"`
-	Assets  []githubReleaseAsset `json:"assets"`
+	TagName    string               `json:"tag_name"`
+	Name       string               `json:"name"`
+	Draft      bool                 `json:"draft"`
+	Prerelease bool                 `json:"prerelease"`
+	Assets     []githubReleaseAsset `json:"assets"`
 }
 
 type githubReleaseAsset struct {

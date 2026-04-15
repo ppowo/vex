@@ -49,6 +49,7 @@ type ResolvedArtifact struct {
 	ArchiveType    ArchiveType
 	BinaryPath     string
 	ChecksumSHA256 string
+	Resolution     *ResolutionInfo
 }
 
 var catalog = map[string]ToolSpec{

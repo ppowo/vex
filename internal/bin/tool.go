@@ -38,17 +38,25 @@ type UpdateResult struct {
 }
 
 type ToolStatus struct {
-	Spec             ToolSpec
-	Managed          bool
-	Path             string
-	Exists           bool
-	Executable       bool
-	StoredVersion    string
-	RuntimeVersion   string
-	LatestVersion    string
-	LatestReleaseTag string
-	UpdateAvailable  bool
-	LatestError      error
+	Spec                     ToolSpec
+	Managed                  bool
+	Path                     string
+	Exists                   bool
+	Executable               bool
+	StoredVersion            string
+	RuntimeVersion           string
+	LatestVersion            string
+	LatestReleaseTag         string
+	UpdateAvailable          bool
+	LatestError              error
+	ResolutionStrategy       string
+	ResolutionReason         string
+	ResolutionExactVersion   bool
+	VersionChangeRequired    bool
+	UpstreamLatestVersion    string
+	UpstreamLatestReleaseTag string
+	SelectedNushellMinor     string
+	CompatibleTools          []string
 }
 
 func (s *ToolStatus) EffectiveInstalledVersion() string {
@@ -112,18 +120,29 @@ func InspectTool(ctx context.Context, spec ToolSpec) (*ToolStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	artifact, err := spec.ResolveLatest(ctx, spec)
 	if err != nil {
 		status.LatestError = err
 		return status, nil
 	}
-
 	status.LatestVersion = artifact.Version
 	status.LatestReleaseTag = artifact.ReleaseTag
+	if artifact.Resolution != nil {
+		status.ResolutionStrategy = artifact.Resolution.Strategy
+		status.ResolutionReason = artifact.Resolution.Reason
+		status.ResolutionExactVersion = artifact.Resolution.ExactVersionRequired
+		status.UpstreamLatestVersion = artifact.Resolution.UpstreamVersion
+		status.UpstreamLatestReleaseTag = artifact.Resolution.UpstreamReleaseTag
+		status.SelectedNushellMinor = artifact.Resolution.SelectedNushellMinor
+		status.CompatibleTools = cloneStringSlice(artifact.Resolution.CompatibleTools)
+	}
 	installedVersion := status.EffectiveInstalledVersion()
 	if installedVersion != "" && artifact.Version != "" {
-		status.UpdateAvailable = CompareVersions(installedVersion, artifact.Version) < 0
+		comparison := CompareVersions(installedVersion, artifact.Version)
+		status.UpdateAvailable = comparison < 0
+		if status.ResolutionExactVersion {
+			status.VersionChangeRequired = comparison != 0
+		}
 	}
 
 	return status, nil
@@ -174,17 +193,21 @@ func UpdateTool(ctx context.Context, spec ToolSpec, force bool) (*UpdateResult, 
 	}
 
 	previousVersion := status.EffectiveInstalledVersion()
-	if status.Exists && previousVersion != "" && artifact.Version != "" && CompareVersions(previousVersion, artifact.Version) >= 0 && !force {
-		return &UpdateResult{
-			State: &ToolState{
-				Installed:        true,
-				Path:             status.Path,
-				InstalledVersion: previousVersion,
-			},
-			Artifact:        artifact,
-			Updated:         false,
-			PreviousVersion: previousVersion,
-		}, nil
+	strictVersion := artifact.Resolution != nil && artifact.Resolution.ExactVersionRequired
+	if status.Exists && previousVersion != "" && artifact.Version != "" && !force {
+		comparison := CompareVersions(previousVersion, artifact.Version)
+		if (!strictVersion && comparison >= 0) || (strictVersion && comparison == 0) {
+			return &UpdateResult{
+				State: &ToolState{
+					Installed:        true,
+					Path:             status.Path,
+					InstalledVersion: previousVersion,
+				},
+				Artifact:        artifact,
+				Updated:         false,
+				PreviousVersion: previousVersion,
+			}, nil
+		}
 	}
 
 	toolState, err := installResolvedTool(ctx, spec, artifact)
@@ -536,26 +559,30 @@ func downloadFile(ctx context.Context, url, dest string) error {
 }
 
 func fetchBytes(ctx context.Context, url string) ([]byte, error) {
+	if rateLimitErr := activeGitHubRateLimit(url); rateLimitErr != nil {
+		return nil, rateLimitErr
+	}
 	client := &http.Client{Timeout: downloadTimeout}
 	ctx, cancel := context.WithTimeout(ctx, downloadTimeout)
 	defer cancel()
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("User-Agent", "vex-bin/1.0")
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch %s: %w", url, err)
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		if rateLimitErr := githubRateLimitErrorFromResponse(resp, url, body); rateLimitErr != nil {
+			rememberGitHubRateLimit(rateLimitErr)
+			return nil, rateLimitErr
+		}
 		return nil, fmt.Errorf("failed to fetch %s: unexpected status %s", url, resp.Status)
 	}
-
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
