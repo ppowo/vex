@@ -76,6 +76,7 @@ vex bin version <tool>             # show installed vs latest version
 | ast-grep | `sg` | Fast, polyglot code search and rewriting |
 | cs | `cs` | Ranked structural code search |
 | difftastic | `difft` | Structural diff that understands syntax |
+| fd | `fd` | A simple, fast and user-friendly alternative to find |
 | nushell | `nu` | A new type of shell |
 | nu-plugin-semver | `nu_plugin_semver` | SemVer parsing for Nushell |
 | nu-plugin-file | `nu_plugin_file` | File type detection via libmagic |

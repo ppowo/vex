@@ -134,10 +134,10 @@ vex/
 │       ├── catalog.go   # ToolSpec type + hardcoded tool catalog
 │       ├── tool.go      # Install/Update/Inspect engine, download, extract
 │       ├── state.go     # bin-state.json read/write
-│       ├── tool_test.go # Unit tests
 │       ├── cs.go        # cs resolver + shared GitHub types/helpers
 │       ├── ast_grep.go  # ast-grep resolver
 │       ├── difftastic.go
+│       ├── fd.go        # fd resolver
 │       ├── nushell.go
 │       ├── nushell_plugins.go
 │       ├── scc.go

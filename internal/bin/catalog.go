@@ -76,6 +76,14 @@ var catalog = map[string]ToolSpec{
 		VersionArgs:   []string{"--version"},
 		ResolveLatest: resolveDifftasticLatest,
 	},
+	"fd": {
+		Name:          "fd",
+		DisplayName:   "fd",
+		Description:   "A simple, fast and user-friendly alternative to find",
+		BinaryName:    "fd",
+		VersionArgs:   []string{"--version"},
+		ResolveLatest: resolveFDLatest,
+	},
 	"nushell": {
 		Name:        "nushell",
 		DisplayName: "Nushell",
