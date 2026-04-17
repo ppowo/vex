@@ -73,23 +73,26 @@ Use `vex path` to print the resolved path. Place scripts or binaries in this dir
 
 ## Managed Binaries (`vex bin`)
 
-vex can install and manage curated standalone binaries into its bin directory. Only binaries hardcoded into vex are supported — vex never treats all files in the bin directory as managed.
+vex can install and manage curated tools into its bin directory. Only tools hardcoded into vex are supported — vex never treats all files in the bin directory as managed.
 
 ### Tool Catalog
 
 Each tool is defined as a `ToolSpec` in `internal/bin/catalog.go` with:
 - Name, binary name, version detection args
+- An optional availability check (for prerequisites like a system JDK)
+- An optional install finalizer for generated launchers or post-processing
 - A resolver function that fetches the latest release from GitHub
-
 ### State Tracking
 
 `~/.vex/bin-state.json` tracks which tools are installed, their versions, and artifact metadata.
+
+`jbang` is installed as a vex-generated launcher plus a sibling `jbang.jar`. vex only manages it when a system JDK is already available via `JAVA_HOME` or `javac` on `PATH`; otherwise it is reported as unavailable and skipped by `sync` / `update --all`.
 
 ### Subcommands
 
 | Command | Description |
 |---------|-------------|
-| `vex bin install <tool> [--force]` | Install a curated binary |
+| `vex bin install <tool> [--force]` | Install a curated tool |
 | `vex bin ls` | List all curated tools and their status |
 | `vex bin status <tool>` | Detailed install/update status |
 | `vex bin sync [--dry-run]` | Install missing + update outdated tools |

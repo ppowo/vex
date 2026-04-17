@@ -10,13 +10,16 @@ import (
 type ResolverFunc func(context.Context, ToolSpec) (*ResolvedArtifact, error)
 
 type ToolSpec struct {
-	Name            string
-	DisplayName     string
-	Description     string
-	BinaryName      string
-	BundledBinaries []string
-	VersionArgs     []string
-	ResolveLatest   ResolverFunc
+	Name              string
+	DisplayName       string
+	Description       string
+	BinaryName        string
+	BundledBinaries   []string
+	BundledFiles      []string
+	VersionArgs       []string
+	AvailabilityCheck func() error
+	FinalizeInstall   FinalizeInstallFunc
+	ResolveLatest     ResolverFunc
 }
 
 func (t ToolSpec) InstalledFilename() string {
@@ -97,6 +100,17 @@ var catalog = map[string]ToolSpec{
 		},
 		VersionArgs:   []string{"--version"},
 		ResolveLatest: resolveNushellLatest,
+	},
+	"jbang": {
+		Name:              "jbang",
+		DisplayName:       "JBang",
+		Description:       "Java scripting and app launcher (requires a system JDK)",
+		BinaryName:        "jbang",
+		BundledFiles:      []string{"jbang.jar"},
+		VersionArgs:       []string{"--version"},
+		AvailabilityCheck: jbangAvailabilityCheck,
+		FinalizeInstall:   finalizeJBangInstall,
+		ResolveLatest:     resolveJBangLatest,
 	},
 	"nu-plugin-semver": {
 		Name:          "nu-plugin-semver",

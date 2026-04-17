@@ -58,10 +58,10 @@ Place scripts or binaries here to make them available in every shell.
 
 ## Managed Binaries (`vex bin`)
 
-Install and update curated standalone binaries into the vex bin directory:
+Install and update curated tools into the vex bin directory:
 
 ```sh
-vex bin install <tool> [--force]   # install a curated binary
+vex bin install <tool> [--force]   # install a curated tool
 vex bin ls                         # list all curated tools and their status
 vex bin status <tool>              # detailed install/update status
 vex bin sync [--dry-run]           # install missing + update outdated tools
@@ -77,12 +77,15 @@ vex bin version <tool>             # show installed vs latest version
 | cs | `cs` | Ranked structural code search |
 | difftastic | `difft` | Structural diff that understands syntax |
 | fd | `fd` | A simple, fast and user-friendly alternative to find |
+| jbang | `jbang` | Java scripting and app launcher (requires a system JDK) |
 | nushell | `nu` | A new type of shell |
 | nu-plugin-semver | `nu_plugin_semver` | SemVer parsing for Nushell |
 | nu-plugin-file | `nu_plugin_file` | File type detection via libmagic |
 | scc | `scc` | Fast code counter with complexity |
 | shellcheck | `shellcheck` | Shell script static analysis |
 | yq | `yq` | YAML/JSON/XML/CSV processor |
+
+JBang is only managed when a system JDK is already available via `JAVA_HOME` or `javac` on `PATH`. Otherwise `vex bin ls` shows it as unavailable and `vex bin sync` skips it.
 
 Only hardcoded tools are supported — vex never assumes all files in the bin directory are managed.
 

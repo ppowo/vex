@@ -43,6 +43,12 @@ func truncate(s string, maxLen int) string {
 }
 
 func toolStatusSummary(status *binpkg.ToolStatus, installedVersion, latestVersion string) string {
+	if !status.Available {
+		if status.UnavailableReason != "" {
+			return "unavailable: " + status.UnavailableReason
+		}
+		return "unavailable"
+	}
 	if status.ResolutionExactVersion && status.VersionChangeRequired && installedVersion != "unknown" && latestVersion != "unknown" {
 		switch comparison := binpkg.CompareVersions(installedVersion, latestVersion); {
 		case comparison > 0:
@@ -90,7 +96,7 @@ func cmdBinLs() {
 		return
 	}
 
-	fmt.Printf("%-12s %-10s %-12s %s\n", "TOOL", "STATE", "VERSION", "PATH")
+	fmt.Printf("%-12s %-12s %-12s %s\n", "TOOL", "STATE", "VERSION", "DETAIL")
 	for _, spec := range tools {
 		status, err := binpkg.LocalToolStatus(spec)
 		if err != nil {
@@ -99,7 +105,11 @@ func cmdBinLs() {
 		}
 
 		state := "available"
+		detail := status.Path
 		switch {
+		case !status.Available:
+			state = "unavailable"
+			detail = status.UnavailableReason
 		case status.Managed && status.Exists:
 			state = "installed"
 		case status.Managed && !status.Exists:
@@ -107,17 +117,20 @@ func cmdBinLs() {
 		case !status.Managed && status.Exists:
 			state = "unmanaged"
 		}
+		if detail == "" {
+			detail = "-"
+		}
 
 		version := status.EffectiveInstalledVersion()
 		if version == "" {
 			version = "-"
 		}
 
-		fmt.Printf("%-12s %-10s %-12s %s\n",
+		fmt.Printf("%-12s %-12s %-12s %s\n",
 			spec.Name,
 			state,
 			version,
-			truncate(status.Path, 60),
+			truncate(detail, 60),
 		)
 	}
 }
@@ -151,6 +164,10 @@ func cmdBinStatus(toolName string) {
 	fmt.Printf("Path:              %s\n", status.Path)
 	fmt.Printf("Exists:            %s\n", yesNo(status.Exists))
 	fmt.Printf("Executable:        %s\n", yesNo(status.Executable))
+	fmt.Printf("Available:         %s\n", yesNo(status.Available))
+	if !status.Available && status.UnavailableReason != "" {
+		fmt.Printf("Unavailable:       %s\n", status.UnavailableReason)
+	}
 	fmt.Printf("Installed version: %s\n", installedVersion)
 	if status.RuntimeVersion != "" && status.StoredVersion != "" && status.RuntimeVersion != status.StoredVersion {
 		fmt.Printf("Stored version:    %s\n", status.StoredVersion)
@@ -177,8 +194,8 @@ func cmdBinStatus(toolName string) {
 	if status.SelectedNushellMinor != "" {
 		fmt.Printf("Compat minor:      %s.x\n", status.SelectedNushellMinor)
 	}
-	if status.LatestVersion != "" && installedVersion != "unknown" {
-		fmt.Printf("Status:            %s\n", toolStatusSummary(status, installedVersion, latestVersion))
+	fmt.Printf("Status:            %s\n", toolStatusSummary(status, installedVersion, latestVersion))
+	if status.Available && status.LatestVersion != "" && installedVersion != "unknown" {
 		if status.ResolutionExactVersion {
 			fmt.Printf("Change required:   %s\n", yesNo(status.VersionChangeRequired))
 		} else {
@@ -192,16 +209,20 @@ func cmdBinStatus(toolName string) {
 func cmdBinSync(dryRun bool) {
 	ctx := context.Background()
 	tools := binpkg.AllTools()
-	var installed, updated, failed int
+	var installed, updated, skipped, failed int
 	rateLimitFailures := githubRateLimitFailureCollector{}
 	for _, spec := range tools {
-		wasUpdate, err := syncTool(ctx, spec, dryRun)
+		wasUpdate, wasSkipped, err := syncTool(ctx, spec, dryRun)
 		if err != nil {
 			failed++
 			if rateLimitFailures.Record(spec.Name, err) {
 				continue
 			}
 			fmt.Fprintf(os.Stderr, "✗ %s: %v\n", spec.Name, err)
+			continue
+		}
+		if wasSkipped {
+			skipped++
 			continue
 		}
 		if wasUpdate {
@@ -212,19 +233,27 @@ func cmdBinSync(dryRun bool) {
 	}
 
 	rateLimitFailures.PrintSummary()
-	fmt.Printf("\nSummary: %d installed, %d updated, %d failed%s\n", installed, updated, failed, rateLimitFailures.SummarySuffix())
+	fmt.Printf("\nSummary: %d installed, %d updated, %d skipped, %d failed%s\n", installed, updated, skipped, failed, rateLimitFailures.SummarySuffix())
 	if failed > 0 {
 		os.Exit(1)
 	}
 }
 
-func syncTool(ctx context.Context, spec binpkg.ToolSpec, dryRun bool) (bool, error) {
+func syncTool(ctx context.Context, spec binpkg.ToolSpec, dryRun bool) (bool, bool, error) {
 	status, err := binpkg.InspectTool(ctx, spec)
 	if err != nil {
-		return false, fmt.Errorf("failed to inspect %s: %w", spec.Name, err)
+		return false, false, fmt.Errorf("failed to inspect %s: %w", spec.Name, err)
+	}
+	if !status.Available {
+		if dryRun {
+			fmt.Printf("• %s: would skip (%s)\n", spec.Name, status.UnavailableReason)
+		} else {
+			fmt.Printf("• %s: skipped (%s)\n", spec.Name, status.UnavailableReason)
+		}
+		return false, true, nil
 	}
 	if status.LatestError != nil {
-		return false, fmt.Errorf("failed to check latest version: %w", status.LatestError)
+		return false, false, fmt.Errorf("failed to check latest version: %w", status.LatestError)
 	}
 
 	latestVersion := status.LatestVersion
@@ -235,27 +264,27 @@ func syncTool(ctx context.Context, spec binpkg.ToolSpec, dryRun bool) (bool, err
 	if !status.Exists {
 		if dryRun {
 			fmt.Printf("• %s: would install %s (not present)\n", spec.Name, latestVersion)
-			return false, nil
+			return false, false, nil
 		}
 		installResult, err := binpkg.InstallTool(ctx, spec, true)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 		fmt.Printf("✓ %s: installed %s\n", spec.Name, installResult.State.InstalledVersion)
-		return false, nil
+		return false, false, nil
 	}
 	// Case 2: Unmanaged binary exists - take it over
 	if !status.Managed {
 		if dryRun {
 			fmt.Printf("• %s: would take over and install %s\n", spec.Name, latestVersion)
-			return true, nil
+			return true, false, nil
 		}
 		installResult, err := binpkg.InstallTool(ctx, spec, true)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 		fmt.Printf("✓ %s: took over and installed %s\n", spec.Name, installResult.State.InstalledVersion)
-		return true, nil
+		return true, false, nil
 	}
 	// Case 3: Managed and installed - update/re-install with force
 	installedVersion := status.EffectiveInstalledVersion()
@@ -272,11 +301,11 @@ func syncTool(ctx context.Context, spec binpkg.ToolSpec, dryRun bool) (bool, err
 		default:
 			fmt.Printf("• %s: would re-install %s\n", spec.Name, latestVersion)
 		}
-		return true, nil
+		return true, false, nil
 	}
 	updateResult, err := binpkg.UpdateTool(ctx, spec, true)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	if updateResult.Updated {
 		if updateResult.PreviousVersion != "" && updateResult.PreviousVersion != updateResult.State.InstalledVersion {
@@ -287,7 +316,7 @@ func syncTool(ctx context.Context, spec binpkg.ToolSpec, dryRun bool) (bool, err
 	} else {
 		fmt.Printf("↑ %s: re-installed %s\n", spec.Name, updateResult.State.InstalledVersion)
 	}
-	return true, nil
+	return true, false, nil
 }
 
 // --- update ---
@@ -333,6 +362,7 @@ func updateAllManagedTools(ctx context.Context, force bool) {
 	tools := binpkg.AllTools()
 	updated := 0
 	current := 0
+	skipped := 0
 	failed := 0
 	rateLimitFailures := githubRateLimitFailureCollector{}
 	for _, spec := range tools {
@@ -343,6 +373,11 @@ func updateAllManagedTools(ctx context.Context, force bool) {
 			continue
 		}
 		if !status.Managed {
+			continue
+		}
+		if !status.Available {
+			skipped++
+			fmt.Printf("• %s: skipped (%s)\n", spec.Name, status.UnavailableReason)
 			continue
 		}
 		result, err := binpkg.UpdateTool(ctx, spec, force)
@@ -368,7 +403,7 @@ func updateAllManagedTools(ctx context.Context, force bool) {
 	}
 
 	rateLimitFailures.PrintSummary()
-	fmt.Printf("Summary: %d updated, %d already current, %d failed%s\n", updated, current, failed, rateLimitFailures.SummarySuffix())
+	fmt.Printf("Summary: %d updated, %d already current, %d skipped, %d failed%s\n", updated, current, skipped, failed, rateLimitFailures.SummarySuffix())
 	if failed > 0 {
 		os.Exit(1)
 	}
@@ -401,6 +436,9 @@ func cmdBinVersion(toolName string) {
 	fmt.Printf("%s\n", spec.Name)
 	fmt.Printf("  installed: %s\n", installedVersion)
 	fmt.Printf("  latest:    %s\n", latestVersion)
+	if !status.Available && status.UnavailableReason != "" {
+		fmt.Printf("  note:      %s\n", status.UnavailableReason)
+	}
 	if status.ResolutionStrategy != "" {
 		fmt.Printf("  resolve:   %s\n", status.ResolutionStrategy)
 	}

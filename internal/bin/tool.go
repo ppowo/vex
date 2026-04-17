@@ -43,6 +43,8 @@ type ToolStatus struct {
 	Path                     string
 	Exists                   bool
 	Executable               bool
+	Available                bool
+	UnavailableReason        string
 	StoredVersion            string
 	RuntimeVersion           string
 	LatestVersion            string
@@ -74,6 +76,14 @@ func GetManagedToolPath(spec ToolSpec) (string, error) {
 	return filepath.Join(binDir, spec.InstalledFilename()), nil
 }
 
+func unavailableToolError(spec ToolSpec, status *ToolStatus) error {
+	reason := "unavailable"
+	if status != nil && strings.TrimSpace(status.UnavailableReason) != "" {
+		reason = strings.TrimSpace(status.UnavailableReason)
+	}
+	return fmt.Errorf("%s is unavailable: %s", spec.Name, reason)
+}
+
 func LocalToolStatus(spec ToolSpec) (*ToolStatus, error) {
 	state, err := LoadState()
 	if err != nil {
@@ -86,8 +96,18 @@ func LocalToolStatus(spec ToolSpec) (*ToolStatus, error) {
 	}
 
 	status := &ToolStatus{
-		Spec: spec,
-		Path: path,
+		Spec:      spec,
+		Path:      path,
+		Available: true,
+	}
+	if spec.AvailabilityCheck != nil {
+		if err := spec.AvailabilityCheck(); err != nil {
+			status.Available = false
+			status.UnavailableReason = strings.TrimSpace(err.Error())
+			if status.UnavailableReason == "" {
+				status.UnavailableReason = "unavailable"
+			}
+		}
 	}
 
 	if toolState, ok := state.Tools[spec.Name]; ok && toolState != nil && toolState.Installed {
@@ -153,6 +173,9 @@ func InstallTool(ctx context.Context, spec ToolSpec, force bool) (*InstallResult
 	if err != nil {
 		return nil, err
 	}
+	if !status.Available {
+		return nil, unavailableToolError(spec, status)
+	}
 
 	if status.Exists && !status.Managed && !force {
 		return nil, fmt.Errorf("%s already exists at %s but is not managed by vex; rerun with --force to overwrite it", spec.Name, status.Path)
@@ -178,6 +201,9 @@ func UpdateTool(ctx context.Context, spec ToolSpec, force bool) (*UpdateResult, 
 	status, err := LocalToolStatus(spec)
 	if err != nil {
 		return nil, err
+	}
+	if !status.Available {
+		return nil, unavailableToolError(spec, status)
 	}
 
 	if !status.Managed {
@@ -314,8 +340,8 @@ func installResolvedTool(ctx context.Context, spec ToolSpec, artifact *ResolvedA
 	if err := verifySHA256(downloadPath, artifact.ChecksumSHA256); err != nil {
 		return nil, err
 	}
-	if artifact.ArchiveType == ArchiveTypeBinary && len(spec.BundledBinaries) > 0 {
-		return nil, fmt.Errorf("%s declares bundled binaries but latest artifact is a standalone binary", spec.Name)
+	if artifact.ArchiveType == ArchiveTypeBinary && (len(spec.BundledBinaries) > 0 || len(spec.BundledFiles) > 0) {
+		return nil, fmt.Errorf("%s declares bundled files but latest artifact is a standalone binary", spec.Name)
 	}
 	binaryPath, err := materializeBinary(downloadPath, tempDir, *artifact)
 	if err != nil {
@@ -337,6 +363,29 @@ func installResolvedTool(ctx context.Context, spec ToolSpec, artifact *ResolvedA
 		bundledTarget := filepath.Join(binDir, binaryInstallFilename(bundledBinary))
 		if err := installBinary(bundledPath, bundledTarget); err != nil {
 			return nil, fmt.Errorf("failed to install bundled binary %s: %w", bundledBinary, err)
+		}
+	}
+	for _, bundledFile := range spec.BundledFiles {
+		bundledArtifact := *artifact
+		bundledArtifact.BinaryPath = bundledFile
+
+		bundledPath, err := materializeBinary(downloadPath, tempDir, bundledArtifact)
+		if err != nil {
+			return nil, fmt.Errorf("failed to materialize bundled file %s: %w", bundledFile, err)
+		}
+
+		bundledTarget := filepath.Join(binDir, bundledFile)
+		if err := installFile(bundledPath, bundledTarget, false); err != nil {
+			return nil, fmt.Errorf("failed to install bundled file %s: %w", bundledFile, err)
+		}
+	}
+	if spec.FinalizeInstall != nil {
+		if err := spec.FinalizeInstall(InstallLayout{
+			BinDir:     binDir,
+			TargetPath: targetPath,
+			Artifact:   cloneResolvedArtifact(artifact),
+		}); err != nil {
+			return nil, fmt.Errorf("failed to finalize install for %s: %w", spec.Name, err)
 		}
 	}
 
@@ -375,14 +424,22 @@ func installResolvedTool(ctx context.Context, spec ToolSpec, artifact *ResolvedA
 }
 
 func installBinary(binaryPath, targetPath string) error {
+	return installFile(binaryPath, targetPath, true)
+}
+
+func installFile(sourcePath, targetPath string, executable bool) error {
 	tempTarget := targetPath + ".vex-tmp"
-	if err := copyFile(binaryPath, tempTarget); err != nil {
-		return fmt.Errorf("failed to stage binary: %w", err)
+	if err := copyFile(sourcePath, tempTarget); err != nil {
+		return fmt.Errorf("failed to stage file: %w", err)
 	}
 	if runtime.GOOS != "windows" {
-		if err := os.Chmod(tempTarget, 0755); err != nil {
+		mode := os.FileMode(0644)
+		if executable {
+			mode = 0755
+		}
+		if err := os.Chmod(tempTarget, mode); err != nil {
 			_ = os.Remove(tempTarget)
-			return fmt.Errorf("failed to mark binary executable: %w", err)
+			return fmt.Errorf("failed to set file mode: %w", err)
 		}
 	}
 
@@ -391,7 +448,7 @@ func installBinary(binaryPath, targetPath string) error {
 	}
 	if err := os.Rename(tempTarget, targetPath); err != nil {
 		_ = os.Remove(tempTarget)
-		return fmt.Errorf("failed to install binary: %w", err)
+		return fmt.Errorf("failed to install file: %w", err)
 	}
 	return nil
 }
