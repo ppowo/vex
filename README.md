@@ -24,7 +24,7 @@ eval "$(vex init)"
 ```sh
 vex set aws staging       # exports AWS_PROFILE=staging
 vex unset aws             # unsets AWS_PROFILE
-vex list                  # show all aliased vars and current values
+vex list                  # show aliased vars, current values, and forced defaults
 vex aliases               # show alias → variable mappings
 ```
 

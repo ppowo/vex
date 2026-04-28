@@ -28,4 +28,10 @@ func cmdList() {
 			fmt.Printf("%-10s %-30s   (not set)\n", alias, envVar)
 		}
 	}
+
+	// Show forced shell defaults
+	fmt.Println()
+	for _, env := range forcedShellEnv {
+		fmt.Printf("%-30s  %s (default)\n", env.name, env.value)
+	}
 }

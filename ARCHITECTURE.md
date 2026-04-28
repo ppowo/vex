@@ -105,7 +105,7 @@ Each tool is defined as a `ToolSpec` in `internal/bin/catalog.go` with:
 | `vex init` | Yes (once, in `.zshrc` or `.bashrc`) | Replay state + create bin dir + add to PATH + output shell function wrapper |
 | `vex set <alias> <value>` | Yes | Export var + persist to state file |
 | `vex unset <alias>` | Yes | Unset var + remove from state file |
-| `vex list` | No | Show current values of all aliased variables |
+| `vex list` | No | Show aliased vars, current values, and forced defaults |
 | `vex aliases` | No | List alias → variable mappings |
 | `vex path` | No | Print the vex bin directory path |
 | `vex bin <subcommand>` | No | Manage curated standalone binaries |
@@ -126,7 +126,7 @@ vex/
 ├── cmd_init.go          # Shell function + state replay + bin dir setup
 ├── cmd_set.go           # Set variable
 ├── cmd_unset.go         # Unset variable
-├── cmd_list.go          # List current values
+├── cmd_list.go          # List aliased vars and forced shell defaults
 ├── cmd_aliases.go       # List alias mappings
 ├── cmd_path.go          # Print bin directory path
 ├── cmd_bin.go           # CLI layer for bin subcommands
