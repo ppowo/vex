@@ -138,6 +138,7 @@ vex/
 │       ├── tool.go      # Install/Update/Inspect engine, download, extract
 │       ├── state.go     # bin-state.json read/write
 │       ├── cs.go        # cs resolver + shared GitHub types/helpers
+│       ├── ctags.go     # universal-ctags nightly resolver
 │       ├── ast_grep.go  # ast-grep resolver
 │       ├── difftastic.go
 │       ├── fd.go        # fd resolver

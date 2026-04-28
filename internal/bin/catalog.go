@@ -72,6 +72,13 @@ var catalog = map[string]ToolSpec{
 		VersionArgs:   []string{"--version"},
 		ResolveLatest: resolveCSLatest,
 	},
+	"universal-ctags": {
+		Name:          "universal-ctags",
+		DisplayName:   "Universal Ctags",
+		Description:   "A maintained ctags implementation for source code indexing",
+		BinaryName:    "ctags",
+		ResolveLatest: resolveCtagsLatest,
+	},
 	"difftastic": {
 		Name:          "difftastic",
 		DisplayName:   "difftastic",

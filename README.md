@@ -83,6 +83,7 @@ vex bin version <tool>             # show installed vs latest version
 | nu-plugin-file | `nu_plugin_file` | File type detection via libmagic |
 | scc | `scc` | Fast code counter with complexity |
 | shellcheck | `shellcheck` | Shell script static analysis |
+| universal-ctags | `ctags` | Maintained ctags implementation for source code indexing |
 | yq | `yq` | YAML/JSON/XML/CSV processor |
 
 JBang is only managed when a system JDK is already available via `JAVA_HOME` or `javac` on `PATH`. Otherwise `vex bin ls` shows it as unavailable and `vex bin sync` skips it.
