@@ -17,7 +17,7 @@ Add to `.zshrc` or `.bashrc`:
 eval "$(vex init)"
 ```
 
-`vex init` always exports `PI_TASKS=off` as part of shell setup.
+`vex init` always exports `PI_TASKS=off`, `PI_HASHLINE_GREP_MAX_LINES=300`, and `PI_HASHLINE_GREP_MAX_BYTES=20000` as part of shell setup.
 
 ## Environment Variables
 
