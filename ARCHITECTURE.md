@@ -31,7 +31,7 @@ vex() {
 ### `set` / `unset` Commands
 
 Output shell statements to **stdout** (captured by eval) and info to **stderr** (displayed directly).
-`vex init` always emits forced shell setup exports for `PI_TASKS="off"`, `PI_HASHLINE_GREP_MAX_LINES="300"`, and `PI_HASHLINE_GREP_MAX_BYTES="20000"`. These values are hardcoded and not persisted in state.
+`vex init` always emits forced shell setup exports for `PI_TASKS="off"`, `PI_HASHLINE_GREP_MAX_LINES="300"`, `PI_HASHLINE_GREP_MAX_BYTES="20000"`, and bash context guard defaults (`PI_HASHLINE_BASH_CONTEXT_GUARD="1"`, `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_LINES="600"`, `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_BYTES="40000"`, `PI_HASHLINE_BASH_CONTEXT_GUARD_HEAD_LINES="120"`, `PI_HASHLINE_BASH_CONTEXT_GUARD_TAIL_LINES="180"`). These values are hardcoded and not persisted in state.
 
 ### Persistent State
 
@@ -45,7 +45,7 @@ Output shell statements to **stdout** (captured by eval) and info to **stderr** 
 
 - `vex set` writes to this file + outputs `export` to stdout
 - `vex unset` removes from this file + outputs `unset` to stdout
-- `vex init` reads this file + replays all exports, then emits forced default exports including `PI_TASKS=off` and grep budget defaults
+- `vex init` reads this file + replays all exports, then emits forced default exports including `PI_TASKS=off`, grep budget defaults, and bash context guard defaults
 
 ## Variable Aliases
 
