@@ -744,3 +744,40 @@ func DetectArchiveType(name string) ArchiveType {
 		return ArchiveTypeBinary
 	}
 }
+
+type githubRelease struct {
+	TagName    string               `json:"tag_name"`
+	Name       string               `json:"name"`
+	Draft      bool                 `json:"draft"`
+	Prerelease bool                 `json:"prerelease"`
+	Assets     []githubReleaseAsset `json:"assets"`
+}
+
+type githubReleaseAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+	Digest             string `json:"digest"`
+}
+
+var sha256HexPattern = regexp.MustCompile(`(?i)\b[a-f0-9]{64}\b`)
+
+func normalizeSHA256Digest(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if idx := strings.Index(raw, ":"); idx >= 0 && strings.EqualFold(raw[:idx], "sha256") {
+		raw = raw[idx+1:]
+	}
+	return strings.TrimSpace(raw)
+}
+
+func checksumForAsset(data []byte, assetName string) string {
+	for line := range strings.SplitSeq(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.Contains(line, assetName) {
+			continue
+		}
+		if checksum := sha256HexPattern.FindString(line); checksum != "" {
+			return strings.ToLower(checksum)
+		}
+	}
+	return ""
+}

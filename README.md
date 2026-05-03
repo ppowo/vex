@@ -74,7 +74,6 @@ vex bin version <tool>             # show installed vs latest version
 | Tool | Binary | Description |
 |------|--------|-------------|
 | ast-grep | `sg` | Fast, polyglot code search and rewriting |
-| cs | `cs` | Ranked structural code search |
 | difftastic | `difft` | Structural diff that understands syntax |
 | fd | `fd` | A simple, fast and user-friendly alternative to find |
 | jbang | `jbang` | Java scripting and app launcher (requires a system JDK) |

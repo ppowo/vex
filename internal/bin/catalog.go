@@ -64,14 +64,6 @@ var catalog = map[string]ToolSpec{
 		VersionArgs:   []string{"--version"},
 		ResolveLatest: resolveAstGrepLatest,
 	},
-	"cs": {
-		Name:          "cs",
-		DisplayName:   "cs",
-		Description:   "Install and update the curated cs standalone binary",
-		BinaryName:    "cs",
-		VersionArgs:   []string{"--version"},
-		ResolveLatest: resolveCSLatest,
-	},
 	"universal-ctags": {
 		Name:          "universal-ctags",
 		DisplayName:   "Universal Ctags",
