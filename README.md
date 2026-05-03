@@ -81,6 +81,7 @@ vex bin version <tool>             # show installed vs latest version
 | nushell | `nu` | A new type of shell |
 | nu-plugin-semver | `nu_plugin_semver` | SemVer parsing for Nushell |
 | nu-plugin-file | `nu_plugin_file` | File type detection via libmagic |
+| ripgrep | `rg` | Recursively searches directories for a regex pattern |
 | scc | `scc` | Fast code counter with complexity |
 | shellcheck | `shellcheck` | Shell script static analysis |
 | universal-ctags | `ctags` | Maintained ctags implementation for source code indexing |

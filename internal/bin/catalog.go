@@ -95,6 +95,14 @@ var catalog = map[string]ToolSpec{
 		VersionArgs:   []string{"--version"},
 		ResolveLatest: resolveFDLatest,
 	},
+	"ripgrep": {
+		Name:          "ripgrep",
+		DisplayName:   "ripgrep",
+		Description:   "Recursively searches directories for a regex pattern",
+		BinaryName:    "rg",
+		VersionArgs:   []string{"--version"},
+		ResolveLatest: resolveRipgrepLatest,
+	},
 	"nushell": {
 		Name:        "nushell",
 		DisplayName: "Nushell",
