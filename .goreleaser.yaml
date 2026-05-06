@@ -3,6 +3,12 @@ project_name: vex
 builds:
   - main: .
     binary: vex
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    goos:
     goos:
       - linux
       - darwin

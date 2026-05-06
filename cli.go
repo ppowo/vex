@@ -1,8 +1,13 @@
 package main
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/alecthomas/kong"
+)
 
 type CLI struct {
+	Version kong.VersionFlag `short:"v" help:"Show version and exit."`
 	Init    InitCmd    `cmd:"" help:"Shell integration (eval in .zshrc or .bashrc)."`
 	Set     SetCmd     `cmd:"" help:"Set an environment variable."`
 	Unset   UnsetCmd   `cmd:"" help:"Unset an environment variable."`

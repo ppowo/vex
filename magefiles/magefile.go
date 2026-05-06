@@ -28,8 +28,27 @@ func Build() error {
 		env["CGO_ENABLED"] = "0"
 	}
 
+	gitDesc, _ := sh.Output("git", "describe", "--tags", "--always", "--dirty")
+	gitCommit, _ := sh.Output("git", "rev-parse", "--short", "HEAD")
+	buildDate, _ := sh.Output("date", "-u", "+%Y-%m-%dT%H:%M:%SZ")
+
+	if gitDesc == "" {
+		gitDesc = "dev"
+	}
+	if gitCommit == "" {
+		gitCommit = "unknown"
+	}
+	if buildDate == "" {
+		buildDate = "unknown"
+	}
+
+	ldflags := fmt.Sprintf(
+		"-s -w -X main.version=%s -X main.commit=%s -X main.date=%s",
+		gitDesc, gitCommit, buildDate,
+	)
+
 	return sh.RunWith(env, "go", "build",
-		"-ldflags=-s -w",
+		"-ldflags="+ldflags,
 		"-trimpath",
 		"-buildvcs=false",
 		"-o", binary,

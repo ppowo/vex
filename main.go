@@ -3,14 +3,24 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/alecthomas/kong"
 )
 
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
 func main() {
 	var cli CLI
 	parser := kong.Must(&cli,
+		kong.Vars{
+			"version": fmt.Sprintf("vex %s (commit: %s, built: %s)", version, commit, date),
+		},
 		kong.Name("vex"),
 		kong.Description("Shell environment variable manager & binary toolkit."),
 		kong.UsageOnError(),
