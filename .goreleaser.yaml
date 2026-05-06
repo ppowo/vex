@@ -1,3 +1,5 @@
+version: 2
+
 project_name: vex
 
 builds:
@@ -9,8 +11,6 @@ builds:
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
     goos:
-    goos:
-      - linux
       - darwin
     goarch:
       - amd64
